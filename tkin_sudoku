@@ -1,0 +1,255 @@
+import tkinter as tk
+from tkinter import messagebox
+
+class Sudoku:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Sudoku")
+        self.boards = self.generate_boards()  # List of boards with increasing difficulty levels
+        self.solutions = self.generate_solutions()  # Solutions for each board
+
+        self.current_board_index = 0
+        self.original_board = [row[:] for row in self.boards[self.current_board_index]]
+        self.board = [row[:] for row in self.original_board]
+        self.cells = [[None for _ in range(9)] for _ in range(9)]
+        self.solve_bonus_used = False  # Track if the solve bonus has been used
+
+        self.level_label = tk.Label(self.root, text=f"Level: {self.current_board_index + 1}", font=('Arial', 16))
+        self.level_label.grid(row=0, column=0, columnspan=9, pady=5)
+
+        self.create_grid()
+
+    def create_grid(self):
+        for row in range(9):
+            for col in range(9):
+                frame = tk.Frame(self.root, borderwidth=1, relief="solid", width=60, height=60)
+                frame.grid(row=row+1, column=col, padx=(0 if col % 3 != 0 else 2, 2), pady=(0 if row % 3 != 0 else 2, 2))
+                
+                cell_value = self.board[row][col]
+                entry = tk.Entry(frame, justify='center', font=('Arial', 18), width=2)
+                entry.grid(sticky='nsew')
+                
+                if cell_value != 0:
+                    entry.insert(0, str(cell_value))
+                    entry.config(state='disabled')
+                else:
+                    entry.bind("<FocusOut>", lambda e, r=row, c=col: self.check_cell(r, c))
+                
+                self.cells[row][col] = entry
+
+        # Create control buttons
+        check_button = tk.Button(self.root, text="Check Solution", command=self.check_solution)
+        check_button.grid(row=10, column=0, columnspan=3, pady=10)
+
+        restart_button = tk.Button(self.root, text="Restart", command=self.reset_grid)
+        restart_button.grid(row=10, column=3, columnspan=3, pady=10)
+
+        done_button = tk.Button(self.root, text="Done", command=self.check_and_proceed)
+        done_button.grid(row=10, column=6, columnspan=3, pady=10)
+
+        self.solve_bonus_button = tk.Button(self.root, text="Solve Once", command=self.use_solve_bonus, state='normal')
+        self.solve_bonus_button.grid(row=11, column=0, columnspan=9, pady=5)
+
+    def reset_grid(self):
+        self.board = [row[:] for row in self.original_board]
+        for row in range(9):
+            for col in range(9):
+                cell_value = self.board[row][col]
+                entry = self.cells[row][col]
+                entry.config(state='normal')
+                entry.delete(0, tk.END)
+                if cell_value != 0:
+                    entry.insert(0, str(cell_value))
+                    entry.config(state='disabled')
+
+    def generate_boards(self):
+        # Six example Sudoku boards with increasing difficulty levels
+        return [
+            [  # Level 1
+                [5, 3, 0, 0, 7, 0, 0, 0, 0],
+                [6, 0, 0, 1, 9, 5, 0, 0, 0],
+                [0, 9, 8, 0, 0, 0, 0, 6, 0],
+                [8, 0, 0, 0, 6, 0, 0, 0, 3],
+                [4, 0, 0, 8, 0, 3, 0, 0, 1],
+                [7, 0, 0, 0, 2, 0, 0, 0, 6],
+                [0, 6, 0, 0, 0, 0, 2, 8, 0],
+                [0, 0, 0, 4, 1, 9, 0, 0, 5],
+                [0, 0, 0, 0, 8, 0, 0, 7, 9]
+            ],
+                # Level 2
+            [
+                [8, 0, 0, 0, 0, 0, 0, 0, 6],
+                [0, 3, 0, 6, 0, 0, 0, 0, 0],
+                [0, 0, 2, 0, 0, 9, 0, 5, 0],
+                [5, 0, 8, 0, 0, 0, 0, 6, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 6, 0, 0, 0, 0, 8, 0, 4],
+                [0, 4, 0, 3, 0, 0, 6, 0, 0],
+                [0, 0, 0, 0, 0, 7, 0, 2, 0],
+                [7, 0, 0, 0, 0, 0, 0, 0, 9]
+            ],
+            # Level 3
+            [
+                [0, 0, 0, 2, 6, 0, 7, 0, 1],
+                [6, 8, 0, 0, 7, 0, 0, 9, 0],
+                [1, 9, 0, 0, 0, 4, 5, 0, 0],
+                [8, 2, 0, 1, 0, 0, 0, 4, 0],
+                [0, 0, 4, 6, 0, 2, 9, 0, 0],
+                [0, 5, 0, 0, 0, 3, 0, 2, 8],
+                [0, 0, 9, 3, 0, 0, 0, 7, 4],
+                [0, 4, 0, 0, 5, 0, 0, 3, 6],
+                [7, 0, 3, 0, 1, 8, 0, 0, 0]
+            ],
+            # Level 4
+            [
+                [0, 0, 5, 3, 0, 0, 0, 0, 0],
+                [8, 0, 0, 0, 0, 0, 0, 2, 0],
+                [0, 7, 0, 0, 1, 0, 5, 0, 0],
+                [4, 0, 0, 0, 0, 5, 3, 0, 0],
+                [0, 1, 0, 0, 7, 0, 0, 0, 6],
+                [0, 0, 3, 2, 0, 0, 0, 8, 0],
+                [0, 6, 0, 5, 0, 0, 0, 0, 9],
+                [0, 0, 4, 0, 0, 0, 0, 3, 0],
+                [0, 0, 0, 0, 0, 9, 7, 0, 0]
+            ],
+            # Level 5
+            [
+                [1, 0, 0, 4, 8, 9, 0, 0, 6],
+                [7, 3, 0, 0, 0, 0, 0, 4, 0],
+                [0, 0, 9, 6, 0, 1, 3, 0, 7],
+                [0, 0, 0, 0, 9, 3, 0, 7, 0],
+                [5, 0, 0, 0, 0, 0, 0, 0, 8],
+                [0, 1, 0, 8, 6, 0, 0, 0, 0],
+                [8, 0, 3, 7, 0, 6, 4, 0, 0],
+                [0, 4, 0, 0, 0, 0, 0, 3, 6],
+                [6, 0, 0, 9, 2, 8, 0, 0, 4]
+            ]
+        ]
+
+    def generate_solutions(self):
+        # Solutions corresponding to each board in the same order
+        return [
+            [  # Solution for Level 1
+                [5, 3, 4, 6, 7, 8, 9, 1, 2],
+                [6, 7, 2, 1, 9, 5, 3, 4, 8],
+                [1, 9, 8, 3, 4, 2, 5, 6, 7],
+                [8, 5, 9, 7, 6, 1, 4, 2, 3],
+                [4, 2, 6, 8, 5, 3, 7, 9, 1],
+                [7, 1, 3, 9, 2, 4, 8, 5, 6],
+                [9, 6, 1, 5, 3, 7, 2, 8, 4],
+                [2, 8, 7, 4, 1, 9, 6, 3, 5],
+                [3, 4, 5, 2, 8, 6, 1, 7, 9]
+            ],
+            # Solution for Level 2
+            [
+                [8, 1, 4, 7, 9, 5, 2, 3, 6],
+                [9, 3, 5, 6, 8, 2, 7, 4, 1],
+                [6, 7, 2, 1, 4, 9, 3, 5, 8],
+                [5, 8, 7, 4, 2, 3, 1, 6, 9],
+                [4, 2, 9, 5, 6, 1, 8, 7, 3],
+                [3, 6, 1, 9, 7, 8, 5, 2, 4],
+                [1, 5, 6, 3, 9, 4, 8, 7, 2],
+                [7, 4, 3, 8, 5, 6, 9, 2, 4],
+                [2, 9, 8, 4, 1, 7, 6, 1, 9]
+            ],
+            # Solution for Level 3
+            [
+                [4, 3, 5, 2, 6, 9, 7, 8, 1],
+                [6, 8, 2, 5, 7, 1, 4, 9, 3],
+                [1, 9, 7, 8, 3, 4, 5, 6, 2],
+                [8, 2, 6, 1, 9, 5, 3, 4, 7],
+                [3, 7, 4, 6, 8, 2, 9, 1, 5],
+                [9, 5, 1, 7, 4, 3, 6, 2, 8],
+                [5, 1, 9, 3, 2, 6, 8, 7, 4],
+                [2, 4, 8, 9, 5, 7, 1, 3, 6],
+                [7, 6, 3, 4, 1, 8, 2, 5, 9]
+            ],
+            # Solution for Level 4
+            [
+                [4, 9, 5, 3, 2, 7, 8, 6, 1],
+                [8, 6, 1, 7, 9, 5, 2, 4, 3],
+                [3, 7, 2, 6, 1, 8, 5, 9, 4],
+                [6, 1, 4, 5, 8, 9, 3, 7, 2],
+                [9, 8, 7, 1, 4, 3, 6, 2, 5],
+                [5, 3, 2, 4, 6, 1, 9, 8, 7],
+                [1, 5, 6, 9, 3, 2, 4, 8, 7],
+                [2, 4, 8, 7, 5, 6, 1, 3, 9],
+                [7, 2, 9, 8, 6, 4, 5, 1, 3]
+            ],
+            # Solution for Level 5
+            [
+                [1, 2, 7, 4, 8, 9, 5, 3, 6],
+                [7, 3, 6, 5, 1, 2, 8, 4, 9],
+                [5, 8, 9, 6, 3, 1, 3, 7, 2],
+                [3, 7, 4, 2, 9, 3, 6, 1, 8],
+                [4, 5, 2, 8, 7, 6, 7, 9, 5],
+                [8, 1, 3, 1, 6, 4, 9, 2, 5],
+                [6, 4, 5, 3, 2, 7, 7, 8, 1],
+                [9, 6, 4, 7, 5, 8, 2, 6, 9],
+                [2, 9, 1, 9, 2, 8, 3, 7, 4]
+            ]
+        ]
+
+    def use_solve_bonus(self):
+        if not self.solve_bonus_used:
+            self.solve_bonus_used = True
+            solution = self.solutions[self.current_board_index]
+            for row in range(9):
+                for col in range(9):
+                    entry = self.cells[row][col]
+                    entry.config(state='normal')
+                    entry.delete(0, tk.END)
+                    entry.insert(0, str(solution[row][col]))
+                    entry.config(state='disabled')
+            self.solve_bonus_button.config(state='disabled')
+        else:
+            messagebox.showwarning("Bonus Used", "You have already used the solve bonus.")
+
+    def check_solution(self):
+        # Verify if solution is correct
+        for row in range(9):
+            for col in range(9):
+                value = self.cells[row][col].get()
+                if not value.isdigit() or int(value) == 0:
+                    messagebox.showerror("Incomplete", "Please fill in all cells.")
+                    return False
+                self.board[row][col] = int(value)
+
+        return self.is_valid_solution()
+
+    def check_and_proceed(self):
+        if self.check_solution():
+            messagebox.showinfo("Congratulations", "Correct! Moving to the next board.")
+            self.current_board_index += 1
+            if self.current_board_index < len(self.boards):
+                self.original_board = [row[:] for row in self.boards[self.current_board_index]]
+                self.board = [row[:] for row in self.original_board]
+                self.reset_grid()
+                self.level_label.config(text=f"Level: {self.current_board_index + 1}")
+            else:
+                messagebox.showinfo("Game Over", "You completed all levels!")
+                self.root.quit()
+        else:
+            messagebox.showerror("Incorrect", "The solution is incorrect. Try again.")
+
+    def is_valid_solution(self):
+        for row in range(9):
+            if not self.is_valid_group(self.board[row]):
+                return False
+        for col in range(9):
+            if not self.is_valid_group([self.board[row][col] for row in range(9)]):
+                return False
+        for box_row in range(0, 9, 3):
+            for box_col in range(0, 9, 3):
+                if not self.is_valid_group([self.board[row][col] for row in range(box_row, box_row + 3) for col in range(box_col, box_col + 3)]):
+                    return False
+        return True
+
+    def is_valid_group(self, group):
+        nums = [num for num in group if num != 0]
+        return len(nums) == len(set(nums))
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    game = Sudoku(root)
+    root.mainloop()
